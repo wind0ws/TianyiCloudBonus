@@ -64,9 +64,5 @@ jobs:
 
         for ((i=0;i<$user_num;i++))
         do
-        python3 checkin.py <<EOF
-        ${user_list[$i]}
-        ${pwd_list[$i]}
-        ${{ secrets.TOKEN }}
-        EOF
+        python3 checkin.py --username ${user_list[$i]} --password ${pwd_list[$i]} --token ${{ secrets.TOKEN }}
         done
