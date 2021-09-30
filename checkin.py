@@ -83,8 +83,8 @@ class CheckIn(object):
             print(response.text)
         else:
             responseJson = response.json()
-            print(f"抽奖1获得{responseJson}")
             prizeName = responseJson['prizeName']
+            print(f"抽奖1获得 {prizeName}")
             notify_user(token=TOKEN, msg=f"天翼云盘第一次抽奖获得：{prizeName} ，返回结果：{response.text}", title=f"天翼抽奖1获得{prizeName}")
             
         response = self.client.get(url2, headers=headers)
@@ -92,8 +92,8 @@ class CheckIn(object):
             print(response.text)
         else:
             responseJson = response.json()
-            print(f"抽奖2获得{responseJson}")
             prizeName = responseJson['prizeName']
+            print(f"抽奖2获得 {prizeName}")
             notify_user(token=TOKEN, msg=f"天翼云盘第二次抽奖获得：{prizeName} ，返回结果：{response.text}", title=f"天翼抽奖2获得{prizeName}")
 
     @staticmethod
