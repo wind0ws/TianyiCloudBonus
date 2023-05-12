@@ -37,8 +37,6 @@ def notify_user(token: str, msg: str, title:str="[天翼云盘自动签到+抽�
 
 class CheckIn(object):
     client = requests.Session()
-    login_url = "https://cloud.189.cn/api/portal/loginUrl.action?" \
-                "redirectURL=https://cloud.189.cn/web/redirect.html?returnURL=/main.action"
     submit_login_url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do"
     sign_url = ("https://api.cloud.189.cn/mkt/userSign.action?rand=%s"
                 "&clientType=TELEANDROID&version=8.6.3&model=SM-G930K")
@@ -49,9 +47,11 @@ class CheckIn(object):
 
     def check_in(self):
         self.login()
+        msg_notify = ""
         rand = str(round(time.time() * 1000))
         url = "https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN"
         url2 = "https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN_PHOTOS&activityId=ACT_SIGNIN"
+        url3 = 'https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_2022_FLDFS_KJ&activityId=ACT_SIGNIN'
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv)"
                           " AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74"
@@ -67,7 +67,7 @@ class CheckIn(object):
         net_disk_bonus = resonseJson["netdiskBonus"]
         tip_sign_msg = "未" if resonseJson['isSign'] == False else "已"
         print(f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间")
-        notify_user(token=TOKEN, msg=f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间, 签到时间：{resonseJson['signTime']}", title=f"天翼云签到{net_disk_bonus}M")
+        msg_notify += f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间, 签到时间：{resonseJson['signTime']}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0"
@@ -85,7 +85,7 @@ class CheckIn(object):
             responseJson = response.json()
             prizeName = responseJson['prizeName']
             print(f"抽奖1获得 {prizeName}")
-            notify_user(token=TOKEN, msg=f"天翼云盘第一次抽奖获得：{prizeName} ，返回结果：{response.text}", title=f"天翼抽奖1获得{prizeName}")
+            msg_notify += f"\n第1次获得：{prizeName} ，返回结果：{response.text}"
             
         response = self.client.get(url2, headers=headers)
         if "errorCode" in response.text:
@@ -94,7 +94,17 @@ class CheckIn(object):
             responseJson = response.json()
             prizeName = responseJson['prizeName']
             print(f"抽奖2获得 {prizeName}")
-            notify_user(token=TOKEN, msg=f"天翼云盘第二次抽奖获得：{prizeName} ，返回结果：{response.text}", title=f"天翼抽奖2获得{prizeName}")
+            msg_notify += f"\n第2次获得：{prizeName} ，返回结果：{response.text}"
+
+        response = self.client.get(url3, headers=headers)
+        if "errorCode" in response.text:
+            print(response.text)
+        else:
+            responseJson = response.json()
+            prizeName = responseJson['prizeName']
+            print(f"抽奖3获得 {prizeName}")
+            msg_notify += f"\n第3次获得：{prizeName} ，返回结果：{response.text}"
+        notify_user(token=TOKEN, msg=msg_notify, title=f"天翼云签到")
 
     @staticmethod
     def rsa_encode(rsa_key, string):
@@ -104,35 +114,64 @@ class CheckIn(object):
         return result
 
     def login(self):
-        r = self.client.get(self.login_url)
-        captcha_token = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
+        #https://m.cloud.189.cn/login2014.jsp?redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html
+        url=""
+        urlToken="https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
+        # s = requests.Session()
+        r = self.client.get(urlToken)
+        pattern = r"https?://[^\s'\"]+"  # 匹配以http或https开头的url
+        match = re.search(pattern, r.text)  # 在文本中搜索匹配
+        if match:  # 如果找到匹配
+            url = match.group()  # 获取匹配的字符串
+            # print(url)  # 打印url
+        else:  # 如果没有找到匹配
+            print("没有找到url")
+        
+        r = self.client.get(url)
+        # print(r.text)
+        pattern = r"<a id=\"j-tab-login-link\"[^>]*href=\"([^\"]+)\""  # 匹配id为j-tab-login-link的a标签，并捕获href引号内的内容
+        match = re.search(pattern, r.text)  # 在文本中搜索匹配
+        if match:  # 如果找到匹配
+            href = match.group(1)  # 获取捕获的内容
+            # print("href:" + href)  # 打印href链接
+        else:  # 如果没有找到匹配
+            print("没有找到href链接")
+            raise Exception("no href link on login")
+        
+        r = self.client.get(href)
+        captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
         lt = re.findall(r'lt = "(.+?)"', r.text)[0]
-        return_url = re.findall(r"returnUrl = '(.+?)'", r.text)[0]
-        param_id = re.findall(r'paramId = "(.+?)"', r.text)[0]
-        j_rsa_key = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
+        returnUrl = re.findall(r"returnUrl= '(.+?)'", r.text)[0]
+        paramId = re.findall(r'paramId = "(.+?)"', r.text)[0]
+        j_rsakey = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
         self.client.headers.update({"lt": lt})
+        
+        username = self.rsa_encode(j_rsakey, self.username)
+        password = self.rsa_encode(j_rsakey, self.password)
+        url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do"
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0",
-            "Referer": "https://open.e.189.cn/",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0',
+            'Referer': 'https://open.e.189.cn/',
         }
         data = {
             "appKey": "cloud",
-            "accountType": "01",
-            "userName": f"{{RSA}}{self.rsa_encode(j_rsa_key, self.username)}",
-            "password": f"{{RSA}}{self.rsa_encode(j_rsa_key, self.password)}",
+            "accountType": '01',
+            "userName": f"{{RSA}}{username}",
+            "password": f"{{RSA}}{password}",
             "validateCode": "",
-            "captchaToken": captcha_token,
-            "returnUrl": return_url,
+            "captchaToken": captchaToken,
+            "returnUrl": returnUrl,
             "mailSuffix": "@189.cn",
-            "paramId": param_id,
+            "paramId": paramId
         }
-        r = self.client.post(self.submit_login_url, data=data, headers=headers, timeout=5)
-        if r.json()["result"] == 0:
-            print(r.json()["msg"])
+        r = self.client.post(url, data=data, headers=headers, timeout=5)
+        if (r.json()['result'] == 0):
+            print(r.json()['msg'])
         else:
-            print(r.json()["msg"])
-        redirect_url = r.json()["toUrl"]
+            print(r.json()['msg'])
+        redirect_url = r.json()['toUrl']
         self.client.get(redirect_url)
+        # return s
 
 
 def _chr(a):
