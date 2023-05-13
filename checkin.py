@@ -3,21 +3,21 @@ import base64
 import re
 import time
 import traceback
-import sys
 import json
 
 import requests
 import rsa
 
-TOKEN=""
+TOKEN = ""
 
-#发送push+通知
-def sendPushplus(token: str, msg: str, title:str="[天翼云盘自动签到+抽奖]"):
+
+# 发送push+通知
+def sendPushplus(token: str, msg: str, title: str = "[天翼云盘自动签到+抽奖]"):
     if (not token) or (len(token) < 32) or (not msg):
-      print("token或msg为空，放弃pushplus推送")
-      return
+        print("token或msg为空，放弃pushplus推送")
+        return
     try:
-        #发送内容
+        # 发送内容
         data = {
             "token": token,
             "title": title,
@@ -32,8 +32,10 @@ def sendPushplus(token: str, msg: str, title:str="[天翼云盘自动签到+抽�
         print(f'pushplus 推送异常，原因为: {str(e)}')
         print(traceback.format_exc())
 
-def notify_user(token: str, msg: str, title:str="[天翼云盘自动签到+抽奖]"):
+
+def notify_user(token: str, msg: str, title: str = "[天翼云盘自动签到+抽奖]"):
     sendPushplus(token, msg, title)
+
 
 class CheckIn(object):
     client = requests.Session()
@@ -62,12 +64,12 @@ class CheckIn(object):
             "Host": "m.cloud.189.cn",
             "Accept-Encoding": "gzip, deflate",
         }
-        response = self.client.get(self.sign_url % rand, headers=headers)
-        resonseJson = response.json()
-        net_disk_bonus = resonseJson["netdiskBonus"]
-        tip_sign_msg = "未" if resonseJson['isSign'] == False else "已"
+        response = self.client.get(self.sign_url % rand, headers=headers, timeout=5)
+        response_json = response.json()
+        net_disk_bonus = response_json["netdiskBonus"]
+        tip_sign_msg = "未" if response_json['isSign'] is False else "已"
         print(f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间")
-        msg_notify += f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间, 签到时间：{resonseJson['signTime']}"
+        msg_notify += f"{tip_sign_msg}签到，签到获得{net_disk_bonus}M空间, 签到时间：{response_json['signTime']}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) "
                           "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0"
@@ -78,7 +80,7 @@ class CheckIn(object):
             "Host": "m.cloud.189.cn",
             "Accept-Encoding": "gzip, deflate",
         }
-        response = self.client.get(url, headers=headers)
+        response = self.client.get(url, headers=headers, timeout=5)
         if "errorCode" in response.text:
             print(response.text)
         else:
@@ -86,8 +88,8 @@ class CheckIn(object):
             prizeName = responseJson['prizeName']
             print(f"抽奖1获得 {prizeName}")
             msg_notify += f"\n第1次获得：{prizeName} ，返回结果：{response.text}"
-            
-        response = self.client.get(url2, headers=headers)
+
+        response = self.client.get(url2, headers=headers, timeout=5)
         if "errorCode" in response.text:
             print(response.text)
         else:
@@ -96,7 +98,7 @@ class CheckIn(object):
             print(f"抽奖2获得 {prizeName}")
             msg_notify += f"\n第2次获得：{prizeName} ，返回结果：{response.text}"
 
-        response = self.client.get(url3, headers=headers)
+        response = self.client.get(url3, headers=headers, timeout=5)
         if "errorCode" in response.text:
             print(response.text)
         else:
@@ -114,11 +116,11 @@ class CheckIn(object):
         return result
 
     def login(self):
-        #https://m.cloud.189.cn/login2014.jsp?redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html
-        url=""
-        urlToken="https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
+        # https://m.cloud.189.cn/login2014.jsp?redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html
+        url = ""
+        urlToken = "https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
         # s = requests.Session()
-        r = self.client.get(urlToken)
+        r = self.client.get(urlToken, timeout=5)
         pattern = r"https?://[^\s'\"]+"  # 匹配以http或https开头的url
         match = re.search(pattern, r.text)  # 在文本中搜索匹配
         if match:  # 如果找到匹配
@@ -126,8 +128,8 @@ class CheckIn(object):
             # print(url)  # 打印url
         else:  # 如果没有找到匹配
             print("没有找到url")
-        
-        r = self.client.get(url)
+
+        r = self.client.get(url, timeout=5)
         # print(r.text)
         pattern = r"<a id=\"j-tab-login-link\"[^>]*href=\"([^\"]+)\""  # 匹配id为j-tab-login-link的a标签，并捕获href引号内的内容
         match = re.search(pattern, r.text)  # 在文本中搜索匹配
@@ -137,20 +139,24 @@ class CheckIn(object):
         else:  # 如果没有找到匹配
             print("没有找到href链接")
             raise Exception("no href link on login")
-        
-        r = self.client.get(href)
+
+        r = self.client.get(href, timeout=5)
         captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
         lt = re.findall(r'lt = "(.+?)"', r.text)[0]
         returnUrl = re.findall(r"returnUrl= '(.+?)'", r.text)[0]
         paramId = re.findall(r'paramId = "(.+?)"', r.text)[0]
         j_rsakey = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
         self.client.headers.update({"lt": lt})
-        
+
         username = self.rsa_encode(j_rsakey, self.username)
         password = self.rsa_encode(j_rsakey, self.password)
         url = "https://open.e.189.cn/api/logbox/oauth2/loginSubmit.do"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/76.0',
+            "User-Agent": "Mozilla/5.0 (Linux; Android 5.1.1; SM-G930K Build/NRD90M; wv) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0"
+                          ".3729.136 Mobile Safari/537.36 Ecloud/8.6.3 Android/22 clientI"
+                          "d/355325117317828 clientModel/SM-G930K imsi/460071114317824 cl"
+                          "ientChannelId/qq proVersion/1.0.6",
             'Referer': 'https://open.e.189.cn/',
         }
         data = {
@@ -166,11 +172,11 @@ class CheckIn(object):
         }
         r = self.client.post(url, data=data, headers=headers, timeout=5)
         if (r.json()['result'] == 0):
-            print(r.json()['msg'])
+            print(f"login成功:{r.json()['msg']}")
         else:
-            print(r.json()['msg'])
+            print(f"login失败:{r.json()['msg']}")
         redirect_url = r.json()['toUrl']
-        self.client.get(redirect_url)
+        self.client.get(redirect_url, timeout=5)
         # return s
 
 
@@ -219,4 +225,3 @@ if __name__ == "__main__":
     TOKEN = args.token
     helper = CheckIn(args.username, args.password)
     helper.check_in()
-
