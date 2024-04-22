@@ -2,6 +2,7 @@ import argparse
 import base64
 import re
 import time
+import random
 import traceback
 import json
 
@@ -12,7 +13,7 @@ TOKEN = ""
 
 
 # 发送push+通知
-def sendPushplus(token: str, msg: str, title: str = "[天翼云盘自动签到+抽奖]"):
+def send_notification_by_pushplus(token: str, msg: str, title: str = "[天翼云盘自动签到+抽奖]"):
     if (not token) or (len(token) < 32) or (not msg):
         print("token或msg为空，放弃pushplus推送")
         return
@@ -29,12 +30,12 @@ def sendPushplus(token: str, msg: str, title: str = "[天翼云盘自动签到+�
         resp = requests.post(url, data=body, headers=headers)
         print(f"pushplus 推送结果：{resp} => {resp.text}")
     except Exception as e:
-        print(f'pushplus 推送异常，原因为: {str(e)}')
+        print(f'pushplus 推送异常: {str(e)}')
         print(traceback.format_exc())
 
 
 def notify_user(token: str, msg: str, title: str = "[天翼云盘自动签到+抽奖]"):
-    sendPushplus(token, msg, title)
+    send_notification_by_pushplus(token, msg, title)
 
 
 class CheckIn(object):
@@ -47,8 +48,18 @@ class CheckIn(object):
         self.username = username
         self.password = password
 
+    @staticmethod
+    def random_delay(min_sec=4, max_sec=8):
+        if (min_sec < 1) or (max_sec > 60):
+            min_sec = 4
+            max_sec = 8
+        random_seconds = random.randint(min_sec, max_sec)
+        print(f"now delay {random_seconds}s")
+        time.sleep(random_seconds)
+
     def check_in(self):
         self.login()
+        CheckIn.random_delay()
         msg_notify = ""
         rand = str(round(time.time() * 1000))
         url = "https://m.cloud.189.cn/v2/drawPrizeMarketDetails.action?taskId=TASK_SIGNIN&activityId=ACT_SIGNIN"
@@ -82,30 +93,32 @@ class CheckIn(object):
         }
         response = self.client.get(url, headers=headers, timeout=5)
         if "errorCode" in response.text:
-            print(response.text)
+            print(f"抽奖1 error: {response.text}")
         else:
-            responseJson = response.json()
-            prizeName = responseJson['prizeName']
-            print(f"抽奖1获得 {prizeName}")
-            msg_notify += f"\n第1次获得：{prizeName} ，返回结果：{response.text}"
+            response_json = response.json()
+            prize_name = response_json['prizeName']
+            print(f"抽奖1获得 {prize_name}")
+            msg_notify += f"\n第1次获得：{prize_name} ，返回结果：{response.text}"
 
+        CheckIn.random_delay(min_sec=8, max_sec=12)
         response = self.client.get(url2, headers=headers, timeout=5)
         if "errorCode" in response.text:
-            print(response.text)
+            print(f"抽奖2 error: {response.text}")
         else:
-            responseJson = response.json()
-            prizeName = responseJson['prizeName']
-            print(f"抽奖2获得 {prizeName}")
-            msg_notify += f"\n第2次获得：{prizeName} ，返回结果：{response.text}"
+            response_json = response.json()
+            prize_name = response_json['prizeName']
+            print(f"抽奖2获得 {prize_name}")
+            msg_notify += f"\n第2次获得：{prize_name} ，返回结果：{response.text}"
 
+        CheckIn.random_delay(min_sec=8, max_sec=12)
         response = self.client.get(url3, headers=headers, timeout=5)
         if "errorCode" in response.text:
-            print(response.text)
+            print(f"抽奖3 error: {response.text}")
         else:
-            responseJson = response.json()
-            prizeName = responseJson['prizeName']
-            print(f"抽奖3获得 {prizeName}")
-            msg_notify += f"\n第3次获得：{prizeName} ，返回结果：{response.text}"
+            response_json = response.json()
+            prize_name = response_json['prizeName']
+            print(f"抽奖3获得 {prize_name}")
+            msg_notify += f"\n第3次获得：{prize_name} ，返回结果：{response.text}"
         notify_user(token=TOKEN, msg=msg_notify, title=f"天翼云签到")
 
     @staticmethod
@@ -118,9 +131,9 @@ class CheckIn(object):
     def login(self):
         # https://m.cloud.189.cn/login2014.jsp?redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html
         url = ""
-        urlToken = "https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
+        url_token = "https://m.cloud.189.cn/udb/udb_login.jsp?pageId=1&pageKey=default&clientType=wap&redirectURL=https://m.cloud.189.cn/zhuanti/2021/shakeLottery/index.html"
         # s = requests.Session()
-        r = self.client.get(urlToken, timeout=5)
+        r = self.client.get(url_token, timeout=5)
         pattern = r"https?://[^\s'\"]+"  # 匹配以http或https开头的url
         match = re.search(pattern, r.text)  # 在文本中搜索匹配
         if match:  # 如果找到匹配
@@ -141,10 +154,10 @@ class CheckIn(object):
             raise Exception("no href link on login")
 
         r = self.client.get(href, timeout=5)
-        captchaToken = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
+        captcha_token = re.findall(r"captchaToken' value='(.+?)'", r.text)[0]
         lt = re.findall(r'lt = "(.+?)"', r.text)[0]
-        returnUrl = re.findall(r"returnUrl= '(.+?)'", r.text)[0]
-        paramId = re.findall(r'paramId = "(.+?)"', r.text)[0]
+        return_url = re.findall(r"returnUrl= '(.+?)'", r.text)[0]
+        param_id = re.findall(r'paramId = "(.+?)"', r.text)[0]
         j_rsakey = re.findall(r'j_rsaKey" value="(\S+)"', r.text, re.M)[0]
         self.client.headers.update({"lt": lt})
 
@@ -165,13 +178,13 @@ class CheckIn(object):
             "userName": f"{{RSA}}{username}",
             "password": f"{{RSA}}{password}",
             "validateCode": "",
-            "captchaToken": captchaToken,
-            "returnUrl": returnUrl,
+            "captchaToken": captcha_token,
+            "returnUrl": return_url,
             "mailSuffix": "@189.cn",
-            "paramId": paramId
+            "paramId": param_id
         }
         r = self.client.post(url, data=data, headers=headers, timeout=5)
-        if (r.json()['result'] == 0):
+        if r.json()['result'] == 0:
             print(f"login成功:{r.json()['msg']}")
         else:
             print(f"login失败:{r.json()['msg']}")
@@ -218,7 +231,7 @@ def b64_to_hex(a):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='天翼云签到脚本')
-    parser.add_argument('--username', type=str, help='账号')
+    parser.add_argument('--username', type=str, help='账号(手机号)')
     parser.add_argument('--password', type=str, help='密码')
     parser.add_argument('--token', type=str, help='PushPlus推送Token')
     args = parser.parse_args()
